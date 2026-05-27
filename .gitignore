@@ -1,0 +1,13 @@
+.venv/
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+.DS_Store
+
+data/
+input/*.csv
+output/*.csv
+output/*.json
+output/*.png
+output/*.jpg
+catboost_info/
