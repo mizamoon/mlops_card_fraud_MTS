@@ -34,6 +34,12 @@ Docker-сервис для инференса модели fraud detection
 ---
 
 ## Как запустить
+Сначала нужно склонировать репозиторий:
+
+```bash
+git clone git@github.com:mizamoon/mlops_card_fraud_MTS.git
+cd mlops_card_fraud_MTS
+```
 
 Файл модели хранится через Git LFS, потому что он больше 100 MB.
 
@@ -42,6 +48,11 @@ Docker-сервис для инференса модели fraud detection
 ```bash
 git lfs install
 git lfs pull
+```
+
+Дальше нужно положить файл test.csv в папку input/.
+```bash
+cp /путь/к/твоему/test.csv input/test.csv
 ```
 
 После этого можно собирать Docker image.
