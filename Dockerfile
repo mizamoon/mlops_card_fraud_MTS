@@ -1,18 +1,13 @@
-FROM python:3.12-slim
+FROM ghcr.io/astral-sh/uv:python3.12-bookworm-slim
 
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 WORKDIR /app
-
-ENV UV_COMPILE_BYTECODE=1
-ENV UV_LINK_MODE=copy
 
 COPY pyproject.toml uv.lock ./
 
-RUN uv sync --frozen --no-install-project --no-dev
+RUN uv sync --frozen --no-dev
 
-COPY src/ ./src/
-COPY models/ ./models/
+COPY . .
 
-RUN mkdir -p input output
+ENV PYTHONPATH=/app
 
-CMD ["uv", "run", "--frozen", "python", "-m", "src.run_pipeline"]
+CMD ["uv", "run", "python", "-m", "src.run_pipeline"]
