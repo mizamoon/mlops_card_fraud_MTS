@@ -1,29 +1,46 @@
-# MLOps МТС ШАД: Card Fraud Detection
-<img width="1330" height="1328" alt="изображение" src="https://github.com/user-attachments/assets/eeda138f-1e01-45c0-9ecf-ddb22723a9e0" />
+````markdown
+# MLOps МТС ШАД: Realtime Card Fraud Detection
 
-(https://www.kaggle.com/competitions/teta-ml-1-2025)
-Docker-сервис для инференса модели fraud detection
+Схема работы:
+
+```text
+test.csv → Streamlit → Kafka transactions → scoring service → Kafka scores → postgres writer → PostgreSQL → Streamlit / Grafana
+````
+
+---
 
 ## Структура проекта
 
 ```text
 .
+├── app/
+│   └── streamlit_app.py
+├── grafana/
+│   ├── dashboards/
+│   └── provisioning/
+│       ├── dashboards/
+│       └── datasources/
+│           └── postgres.yml
+├── init_db/
+│   └── init.sql
 ├── input/
-│   └── .gitkeep
-├── output/
 │   └── .gitkeep
 ├── models/
 │   ├── model.cbm
 │   └── threshold.json
+├── postgres_writer/
+│   ├── __init__.py
+│   └── writer.py
+├── scoring_service/
+│   ├── __init__.py
+│   └── consumer_producer.py
 ├── src/
 │   ├── __init__.py
-│   ├── load_data.py
 │   ├── preprocess.py
-│   ├── predict.py
-│   ├── save_submission.py
-│   └── run_pipeline.py
+│   └── predict.py
 ├── train_model.py
 ├── Dockerfile
+├── docker-compose.yml
 ├── pyproject.toml
 ├── uv.lock
 ├── .gitignore
@@ -34,6 +51,7 @@ Docker-сервис для инференса модели fraud detection
 ---
 
 ## Как запустить
+
 Сначала нужно склонировать репозиторий:
 
 ```bash
@@ -41,98 +59,136 @@ git clone git@github.com:mizamoon/mlops_card_fraud_MTS.git
 cd mlops_card_fraud_MTS
 ```
 
-Файл модели хранится через Git LFS, потому что он больше 100 MB.
+Перейти на ветку с realtime-сервисом:
 
-После клонирования репозитория нужно выполнить:
+```bash
+git checkout hw2-kafka-streaming
+```
+
+Модель хранится через Git LFS, поэтому после клонирования нужно выполнить:
 
 ```bash
 git lfs install
 git lfs pull
 ```
 
-Дальше нужно положить файл test.csv в папку input/.
+Дальше нужно положить `test.csv` в папку `input/`:
+
 ```bash
+mkdir -p input
 cp /путь/к/твоему/test.csv input/test.csv
 ```
 
-После этого можно собирать Docker image.
-Сначала нужно положить файл `test.csv` в папку:
-
-```text
-input/test.csv
-```
-
-Потом собрать Docker image:
+Запустить все контейнеры:
 
 ```bash
-docker build -t fraud .
+docker compose up -d --build
 ```
+---
 
-Запустить контейнер:
+## Как проверить работу
 
-```bash
-docker run --rm \
-  -v $(pwd)/input:/app/input \
-  -v $(pwd)/output:/app/output \
-  fraud
-```
-
-После запуска результаты появятся в папке:
+Открыть Streamlit:
 
 ```text
-output/
+http://localhost:8501
 ```
+
+Во вкладке `Отправка транзакций` нажать:
+
+```text
+Отправить транзакции в Kafka
+```
+
+Потом перейти во вкладку `Результаты` и нажать:
+
+```text
+Посмотреть результаты
+```
+
+UI показывает:
+
+```text
+10 последних транзакций с fraud_flag = 1
+гистограмму score последних 100 транзакций
+```
+
+## Grafana
+
+Открыть Grafana:
+
+```text
+http://localhost:3000
+```
+
+Логин и пароль:
+
+```text
+admin / admin
+```
+
+В Grafana настроен datasource:
+
+```text
+Fraud PostgreSQL
+```
+
+Dashboard содержит графики:
+
+```text
+Score distribution
+TPS by second
+Fraud share by cat_id
+```
+
+Также есть фильтры:
+
+```text
+us_state
+merch
+```
+
+Графики строятся по данным из PostgreSQL.
 
 ---
 
-## Что будет в output
+## Kafka
+
+Используются два topic:
 
 ```text
-sample_submission.csv
+transactions
+scores
 ```
 
-Файл с предсказаниями в нужном формате.
+`transactions` — входные транзакции из Streamlit.
 
-```text
-feature_importances.json
-```
-
-JSON-файл с топ-5 важными признаками модели.
-
-```text
-prediction_density.png
-```
-
-График распределения предсказанных моделью скоров.
+`scores` — результат скоринга модели:
 
 ---
 
-## Этапы пайплайна
+## PostgreSQL
 
-Сервис выполняет несколько отдельных шагов:
-
-1. `load_data.py` — загружает `input/test.csv`
-2. `preprocess.py` — обрабатывает данные
-3. `predict.py` — загружает модель и делает предсказания
-4. `save_submission.py` — сохраняет результат
-5. `run_pipeline.py` — запускает все этапы по порядку
-
----
-
-## Модель
-
-Используется `CatBoostClassifier`.
-
-Модель обучается заранее и хранится в файле:
+База данных:
 
 ```text
-models/model.cbm
+fraud_db
 ```
 
-Порог для перевода вероятностей в классы `0/1` хранится здесь:
+Таблица:
 
 ```text
-models/threshold.json
+fraud_scores
 ```
 
----
+Поля таблицы:
+
+```text
+transaction_id
+score
+fraud_flag
+us_state
+merch
+cat_id
+created_at
+```
